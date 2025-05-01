@@ -1,0 +1,264 @@
+// Variables globales
+let currentTopic = null;
+
+// Mostrar mensaje del usuario
+function displayUserMessage(message) {
+  const chat = document.getElementById("chat");
+  const userMessage = document.createElement("div");
+  userMessage.classList.add("message", "user");
+  const avatar = document.createElement("div"); avatar.classList.add("avatar"); avatar.innerText = "👤";
+  const text = document.createElement("div"); text.classList.add("text"); text.innerHTML = message;
+  userMessage.append(avatar, text);
+  chat.appendChild(userMessage);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Mostrar mensaje del bot
+function displayBotMessage(message) {
+  const chat = document.getElementById("chat");
+  const botMessage = document.createElement("div");
+  botMessage.classList.add("message", "bot");
+  const avatar = document.createElement("div"); avatar.classList.add("avatar"); avatar.innerText = "🤖";
+  const text = document.createElement("div"); text.classList.add("text"); text.innerHTML = message;
+  botMessage.append(avatar, text);
+  chat.appendChild(botMessage);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Mostrar imágenes relacionadas
+function displayBotImages(topicOrUrls) {
+  const chat = document.getElementById("chat");
+  const container = document.createElement("div");
+  container.classList.add("bot-images");
+
+  let images = [];
+  if (Array.isArray(topicOrUrls)) {
+    images = topicOrUrls;
+  } else {
+    const topicImages = {
+      "Métodos anticonceptivos": ["https://www.reproduccionasistida.org/wp-content/uploads/2020/09/diferentes-metodos-anticonceptivos.png"],
+      "Salud sexual": ["https://www.javerianacali.edu.co/.../Salud-sexual-y-mental.jpg.webp", "https://img.freepik.com/.../salud-sexual_23-2149026747.jpg"],
+      "Consentimiento": ["https://encrypted-tbn0.gstatic.com/images?q=..."],
+      "Identidad de género": ["https://encrypted-tbn0.gstatic.com/images?q=...", "https://www.centropcc.mx/.../danae012.jpg"],
+      "Educación sexual": ["https://www.educaciontrespuntocero.com/.../libros-educacion-sexual-978x652.jpg", "https://encrypted-tbn0.gstatic.com/images?q=..."]
+    };
+    images = topicImages[topicOrUrls] || [];
+  }
+
+  images.forEach(url => {
+    const img = document.createElement("img");
+    img.src = url;
+    img.classList.add("topic-image");
+    container.appendChild(img);
+  });
+
+  chat.appendChild(container);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Mostrar opciones de temas, incluida la de investigar otro tema
+function displayBotOptions() {
+  const topics = [
+    "Métodos anticonceptivos",
+    "Salud sexual",
+    "Consentimiento",
+    "Identidad de género",
+    "Educación sexual",
+    "Investigar otro tema"
+  ];
+  const chat = document.getElementById("chat");
+  const optionsDiv = document.createElement("div");
+  optionsDiv.classList.add("bot-options");
+
+  topics.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.classList.add("option-button");
+    btn.innerText = opt;
+    btn.onclick = () => handleTopicSelection(opt, optionsDiv);
+    optionsDiv.appendChild(btn);
+  });
+
+  const exitBtn = document.createElement("button");
+  exitBtn.classList.add("option-button");
+  exitBtn.innerText = "Salir";
+  exitBtn.onclick = () => {
+    displayUserMessage("Salir");
+    displayBotMessage("¡Hasta luego!");
+    optionsDiv.remove();
+  };
+  optionsDiv.appendChild(exitBtn);
+
+  chat.appendChild(optionsDiv);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Maneja selección de tema o opción custom
+async function handleTopicSelection(opt, optionsDiv) {
+  optionsDiv.remove();
+  if (opt === "Investigar otro tema") {
+    displayUserMessage(opt);
+    displayBotMessage("¿Qué tema te gustaría investigar? Por favor escribe el nombre:");
+    promptCustomTopic();
+  } else {
+    processTopic(opt);
+  }
+}
+
+// Muestra un input para tema custom
+function promptCustomTopic() {
+  const chat = document.getElementById("chat");
+  const container = document.createElement("div");
+  container.classList.add("custom-topic");
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Escribe tu tema aquí...";
+  input.classList.add("topic-input");
+
+  const btn = document.createElement("button");
+  btn.classList.add("option-button");
+  btn.innerText = "Buscar";
+  btn.onclick = () => {
+    const topic = input.value.trim();
+    if (topic) {
+      container.remove();
+      processTopic(topic);
+    }
+  };
+
+  input.addEventListener("keypress", e => {
+    if (e.key === "Enter") {
+      btn.click();
+    }
+  });
+
+  container.append(input, btn);
+  chat.appendChild(container);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Flujo de procesamiento de un tema cualquiera
+async function processTopic(topic) {
+  displayUserMessage(topic);
+  currentTopic = topic;
+  displayBotMessage(Buscando información sobre "${topic}"...);
+
+  const summaryData = await fetchWikipediaData(topic);
+  displayBotMessage(summaryData.extract || "No encontré información.");
+
+  displayBotImages(topic);
+
+  setTimeout(() => {
+    displayBotMessage(¿Quieres más detalles o imágenes sobre "${topic}"?);
+    displayDeepOptions();
+  }, 1000);
+}
+
+// Opciones de profundidad
+function displayDeepOptions() {
+  const chat = document.getElementById("chat");
+  const deepDiv = document.createElement("div");
+  deepDiv.classList.add("bot-options");
+
+  ["Sí", "No"].forEach(choice => {
+    const btn = document.createElement("button");
+    btn.classList.add("option-button");
+    btn.innerText = choice;
+    btn.onclick = () => handleDepthChoice(choice, deepDiv);
+    deepDiv.appendChild(btn);
+  });
+
+  chat.appendChild(deepDiv);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Maneja "Sí" o "No" tras detalles
+async function handleDepthChoice(choice, deepDiv) {
+  displayUserMessage(choice);
+  deepDiv.remove();
+  if (choice === "Sí") {
+    displayBotMessage("Obteniendo más detalles e imágenes...");
+    const details = await getMoreDetails(currentTopic);
+    displayBotMessage(details);
+    const imgs = await fetchWikipediaImages(currentTopic);
+    if (imgs.length) displayBotImages(imgs);
+    setTimeout(() => {
+      displayBotMessage("¿Quieres investigar otro tema?");
+      displayBotOptions();
+    }, 1000);
+  } else {
+    displayBotMessage("De acuerdo 😊 ¿Deseas explorar otro tema?");
+    displayBotOptions();
+  }
+}
+
+// APIs de Wikipedia
+async function fetchWikipediaData(query) {
+  try {
+    const res = await fetch(https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)});
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+async function fetchWikipediaImages(query) {
+  try {
+    const api = https://es.wikipedia.org/w/api.php?action=query&prop=images&titles=${encodeURIComponent(query)}&format=json&origin=*;
+    const res = await fetch(api);
+    const data = await res.json();
+    const pages = data.query.pages;
+    const imageTitles = Object.values(pages)[0].images || [];
+    const urls = [];
+    imageTitles.filter(img => img.title.match(/\.(jpg|jpeg|png)$/i)).slice(0,4)
+      .forEach(async imgMeta => {
+        const title = imgMeta.title.replace("File:", "");
+        const infoRes = await fetch(https://es.wikipedia.org/api/rest_v1/page/media/${encodeURIComponent(title)});
+        const infoJson = await infoRes.json();
+        if (infoJson.items?.[0]?.src) urls.push(infoJson.items[0].src);
+      });
+    return urls;
+  } catch {
+    return [];
+  }
+}
+
+// Versión mejorada de getMoreDetails (limpia referencias)
+async function getMoreDetails(topic) {
+  try {
+    const res = await fetch(https://es.wikipedia.org/api/rest_v1/page/mobile-html/${encodeURIComponent(topic)});
+    const html = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const paras = Array.from(doc.querySelectorAll("p"));
+    let content = "";
+    for (let i = 0, added = 0; i < paras.length && added < 3; i++) {
+      let t = paras[i].textContent.replace(/\[\d+\]/g, "").replace(/\s+/g," ").trim();
+      if (t.length > 50) {
+        content += <p>${t}</p>;
+        added++;
+      }
+    }
+    return content || "No se encontró información adicional.";
+  } catch {
+    return "No se pudo obtener más información.";
+  }
+}
+
+// Inicialización
+document.getElementById("button").addEventListener("click", () => {
+  const inp = document.getElementById("input");
+  const txt = inp.value.trim();
+  if (!txt) return;
+  displayUserMessage(txt);
+  displayBotMessage("¡Hola! ¿Sobre qué tema de sexualidad te interesa investigar?");
+  setTimeout(displayBotOptions, 500);
+  inp.value = "";
+});
+
+document.getElementById("input").addEventListener("keypress", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    document.getElementById("button").click();
+  }
+});
